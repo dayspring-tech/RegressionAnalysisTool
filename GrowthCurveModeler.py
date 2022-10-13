@@ -14,9 +14,9 @@ import warnings
 import numbers
 import copy
 
-def gompertz(x, A, B, C, D):
-    return A * np.exp( - np.exp( -C * (x-B))) + D
 
+def gompertz(x, A, B, C, D):
+    return A * np.exp(- np.exp(-C * (x-B))) + D
 
 
 def modgompertz(x, A, B, C, D):
@@ -27,15 +27,15 @@ def logistic(x, A, B, C, D):
     return A / (1 + np.exp(-C * (x - B))) + D
 
 
-def modlogistic(x,A,B,C,D):
+def modlogistic(x, A, B, C, D):
     return A / (1 + np.exp(((4 * C)/A) * (B-x) + 2)) + D
 
 
-def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time = None, regression=None, OD_values=None,
+def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time=None, regression=None, OD_values=None,
                  msgr=None, doubling_time=None, delta_OD_max=None, min_od=None, median_od_max=None, possible_growth=0,
                  plot_title=''):
-    fig, ax = mpl.subplots();
-            
+    fig, ax = mpl.subplots()
+
     mpl.xlabel('Time (Hours)')
     mpl.ylabel('OD (600nm)')
 
@@ -45,7 +45,7 @@ def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time 
     if (full_plot):
         lagtimestart = [lag_time, -10]
         lagtimestop = [lag_time, 10]
-        #plot timepoints
+        # plot timepoints
         ax.plot(time, regression, 'b-')
         ax.plot(*zip(lagtimestart, lagtimestop), color='green')
 
@@ -53,7 +53,9 @@ def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time 
             lag_time_str = 'Possible Growth...\n'
         else:
             lag_time_str = ''
-        lag_time_str = lag_time_str + "lag_time = %f\nmax growth = %f\ndoubling time = %f\nDelta OD Max = %f" % (lag_time, msgr, doubling_time, delta_OD_max)
+        lag_time_str = lag_time_str + \
+            "lag_time = %f\nmax growth = %f\ndoubling time = %f\nDelta OD Max = %f" % (
+                lag_time, msgr, doubling_time, delta_OD_max)
 
     else:
         lag_time_str = "No Growth\nDelta OD Max = %f" % delta_OD_max
@@ -65,15 +67,16 @@ def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time 
     else:
         v_align = 'top'
         v_placement = 0.95
-    ax.text(0.95, v_placement, lag_time_str, transform=ax.transAxes, fontsize = 14, verticalalignment=v_align, horizontalalignment='right', bbox=props)
+    ax.text(0.95, v_placement, lag_time_str, transform=ax.transAxes, fontsize=14,
+            verticalalignment=v_align, horizontalalignment='right', bbox=props)
     fig.suptitle(plot_title, fontsize=16)
-    mpl.savefig(full_filename + ".png", dpi =600, format="png")
-
+    mpl.savefig(full_filename + ".png", dpi=600, format="png")
 
     mpl.close(fig)
-    #mpl.show();    
+    # mpl.show();
     return
-    
+
+
 def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title):
     """
     FindRegressionCurve - using the parameters specified, attempts to fit a 
@@ -91,12 +94,11 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
 
 #    for i in range(len(OD_values)):
 #        OD_values_med[i] = max(0, OD_values[i]);
-        
 
     timepoints_med = timepoints
-     
+
     filter_width = 3
-    
+
     OD_values_med = medfilt(OD_values, filter_width)
 
     min_od = np.min(OD_values)
@@ -110,42 +112,41 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         median_min_od = OD_values_med[0]
     min_index = np.argmin(OD_values_med)
 
+    double_hump_found = False
 
-
-    double_hump_found = False;
-    
     if (double_hump and max_index > 3):
 
-        peaks_indices = scipy.signal.find_peaks_cwt(OD_values, np.arange(1,10))
+        peaks_indices = scipy.signal.find_peaks_cwt(
+            OD_values, np.arange(1, 10))
         peaks_thresholded = []
         locs_thresholded = []
-        
-        if len(peaks_indices)>0:
+
+        if len(peaks_indices) > 0:
             for i in range(len(peaks_indices)):
                 if (OD_values[peaks_indices[i]] < median_od_max * 0.85):
                     peaks_thresholded.append(OD_values[peaks_indices[i]])
                     locs_thresholded.append(peaks_indices[i])
 
         if (len(peaks_thresholded) > 0):
-            
+
             min_value = OD_values[peaks_thresholded[len(peaks_thresholded)-1]]
-            for ele in OD_values[range(peaks_thresholded[len(peaks_thresholded)-1], len(OD_values) - 1 )]:
+            for ele in OD_values[range(peaks_thresholded[len(peaks_thresholded)-1], len(OD_values) - 1)]:
                 min_value = min(ele, min_value)
-            
+
             location_min = OD_values.index(min_value)
-            
+
             OD_values_dh[0] = OD_values[0]
             timepoints_dh[0] = timepoints[0]
-            
-            for i in range(1, len(OD_values)-location_min +1): 
+
+            for i in range(1, len(OD_values)-location_min + 1):
                 OD_values_dh[i] = OD_values[i + location_min - 1]
-                timepoints_dh[i] = timepoints[i + location_min -1]
-            
+                timepoints_dh[i] = timepoints[i + location_min - 1]
+
             OD_values = OD_values_dh
             timepoints = timepoints_dh
             max_index = max_index - location_min + 2
             double_hump_found = True
-    
+
     timepoints_orig = timepoints
 
     initial_index = 0
@@ -163,17 +164,13 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
     for i in range(adj_vals_length):
         timepoints_adj.append(i * time_interval + incubation_time)
         if (i >= initial_index):
-           if (i <= max_index):
-               OD_values_adj.append(OD_values_med[i])
-           else:
-               OD_values_adj.append(median_od_max)
-    
-    
-    
-    
+            if (i <= max_index):
+                OD_values_adj.append(OD_values_med[i])
+            else:
+                OD_values_adj.append(median_od_max)
+
     max_od_adj = max(OD_values_adj)
-    
-    
+
     """
     Appl. Environ. Microbiol. June 1990 vol. 56 no. 6 1875-1881
 
@@ -198,34 +195,35 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
     """
     min_d = -1
     if (data_min):
-        min_d = min(0.0999,max(min(OD_values_adj), -1))
+        min_d = min(0.0999, max(min(OD_values_adj), -1))
 
     if (model == 'gompertz'):
         fitfunc_range = gompertz
         fitfunc = gompertz
-        initial_guess =  [0.5, 1.5, 0.2, 0.1]
-        boundvals = ([0,0,0,min_d],[100,100,2,3])
+        initial_guess = [0.5, 1.5, 0.2, 0.1]
+        boundvals = ([0, 0, 0, min_d], [100, 100, 2, 3])
     elif (model == 'modgompertz'):
         fitfunc_range = modgompertz
         fitfunc = modgompertz
         initial_guess = [0.5, 1.5, 0.2, 0.1]
-        boundvals = ([0,0.000001,0,min_d],[100,100,2,3])
+        boundvals = ([0, 0.000001, 0, min_d], [100, 100, 2, 3])
     elif (model == 'logistic'):
         fitfunc_range = logistic
         fitfunc = logistic
         initial_guess = [0.5, 1.5, 0.2, 0.1]
-        boundvals = ([0,0,0,min_d],[100,100,2,3])
+        boundvals = ([0, 0, 0, min_d], [100, 100, 2, 3])
     elif (model == 'modlogistic'):
         fitfunc_range = modlogistic
         fitfunc = modlogistic
         initial_guess = [2, 1.5, 0.2, 0.1]
-        boundvals =([0,0.000001,0,min_d],[100,100,3,3])
+        boundvals = ([0, 0.000001, 0, min_d], [100, 100, 3, 3])
     else:
         print("Unsupported Model")
         return -1
 
     delta_OD_max = median_od_max - median_min_od
-    time = pl.arange(0, (len(OD_values_adj)) * time_interval + incubation_time, 0.01)
+    time = pl.arange(0, (len(OD_values_adj)) *
+                     time_interval + incubation_time, 0.01)
 
     if (delta_OD_max < threshold * 0.7):
         note = 'No Growth Detected, Check Plot'
@@ -242,11 +240,11 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         note = 'Possible Growth, Check Plot'
         possible_growth_flag = 1
 
-
     try:
-        (coef, est_cov) = scipy.optimize.curve_fit(fitfunc_range, timepoints_adj[initial_index:len(OD_values_adj)], OD_values_adj, initial_guess, bounds = boundvals)
+        (coef, est_cov) = scipy.optimize.curve_fit(fitfunc_range, timepoints_adj[initial_index:len(
+            OD_values_adj)], OD_values_adj, initial_guess, bounds=boundvals)
     except scipy.optimize.OptimizeWarning:
-        print ('Maxed out cant estimate covariance, cannot fit curve')
+        print('Maxed out cant estimate covariance, cannot fit curve')
         note = 'failed to fit curve'
         lag_time = ''
         msgr = ''
@@ -257,10 +255,10 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         delta_OD_max = ''
         plot_results(False, full_filename, plot_title=plot_title)
         return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note)
-    except RuntimeError:        
-        print ('Maxed out calls, cannot fit curve')
+    except RuntimeError:
+        print('Maxed out calls, cannot fit curve')
         note = 'failed to fit curve'
-        lag_time =''
+        lag_time = ''
         msgr = ''
         doubling_time = ''
         noreg = 1
@@ -270,79 +268,73 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         plot_results(False, full_filename, plot_title=plot_title)
         return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note)
 
-
-    #need to re-evaluate use of R^2 value.  With non-linear regression, this value is dubious.  Should perhaps use standard error in the units of OD or a pseudo R^2 value
+    # need to re-evaluate use of R^2 value.  With non-linear regression, this value is dubious.  Should perhaps use standard error in the units of OD or a pseudo R^2 value
     #(slope, intercept, rsquared, pvalue, stderr) = scipy.stats.linregress(OD_values_adj, fit_values)
     SSE = 0
     SST = 0
     adj_mean = np.mean(OD_values_adj)
 
-
     for i in range(len(OD_values_adj)):
-        resid = OD_values_adj[i] - fitfunc(timepoints_adj[i], coef[0], coef[1], coef[2], coef[3])
+        resid = OD_values_adj[i] - \
+            fitfunc(timepoints_adj[i], coef[0], coef[1], coef[2], coef[3])
         SST_sub = OD_values_adj[i] - adj_mean
         SSE = SSE + resid * resid
         SST = SST + SST_sub * SST_sub
 
-    rsquared = 1- SSE/SST
-    rmse = np.sqrt( SSE / len(OD_values_adj))
-
+    rsquared = 1 - SSE/SST
+    rmse = np.sqrt(SSE / len(OD_values_adj))
 
     if (model == 'gompertz' or model == 'logistic'):
         inflection_point = coef[1]
         msgr = coef[2]
         #offset = 1
         #lag_time = inflection_point * time_interval - (np.log(fitfunc(inflection_point,coef[0],coef[1],coef[2], coef[3]) + offset) - np.log(OD_values_adj[0] + offset)) / msgr
-        lag_time = inflection_point * time_interval - (fitfunc(inflection_point,coef[0],coef[1],coef[2], coef[3]) - fitfunc(0,coef[0],coef[1],coef[2],coef[3])) / msgr
+        lag_time = inflection_point * time_interval - \
+            (fitfunc(inflection_point, coef[0], coef[1], coef[2], coef[3]) - fitfunc(
+                0, coef[0], coef[1], coef[2], coef[3])) / msgr
 
     elif (model == 'modgompertz' or model == 'modlogistic'):
         lag_time = coef[1]
         msgr = coef[2]
 
-
-        
     doubling_time = np.log(2) / msgr
-    
+
     lag_time = max(lag_time, 0)
-    
-    
- 
-    
-    if (double_hump==1 and double_hump_found == 0):
+
+    if (double_hump == 1 and double_hump_found == 0):
         note = 'No Double Hump Detected'
-        
 
-    regression = fitfunc(time, coef[0],coef[1], coef[2], coef[3])
+    regression = fitfunc(time, coef[0], coef[1], coef[2], coef[3])
 
-    plot_results(True, full_filename, lag_time, timepoints, time, regression, OD_values, msgr, doubling_time, delta_OD_max, min_od, median_od_max, possible_growth_flag, plot_title=plot_title)
-    
-    #plot curve
-    
-    #plot line on lag_time
-    
-    #scale, and label
-    
-    return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note);
-    
+    plot_results(True, full_filename, lag_time, timepoints, time, regression, OD_values, msgr,
+                 doubling_time, delta_OD_max, min_od, median_od_max, possible_growth_flag, plot_title=plot_title)
 
-def medfilt (x, k):
+    # plot curve
+
+    # plot line on lag_time
+
+    # scale, and label
+
+    return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note)
+
+
+def medfilt(x, k):
     """Apply a length-k median filter to a 1D array x.
     Boundaries are extended by repeating endpoints.
     """
     assert k % 2 == 1, "Median filter length must be odd."
     assert x.ndim == 1, "Input must be one-dimensional."
     k2 = (k - 1) // 2
-    y = np.zeros ((len (x), k), dtype=x.dtype)
-    y[:,k2] = x
-    for i in range (k2):
+    y = np.zeros((len(x), k), dtype=x.dtype)
+    y[:, k2] = x
+    for i in range(k2):
         j = k2 - i
-        y[j:,i] = x[:-j]
-        y[:j,i] = x[0]
-        y[:-j,-(i+1)] = x[j:]
-        y[-j:,-(i+1)] = x[-1]
-    return np.median (y, axis=1)
-    
-    
+        y[j:, i] = x[:-j]
+        y[:j, i] = x[0]
+        y[:-j, -(i+1)] = x[j:]
+        y[-j:, -(i+1)] = x[-1]
+    return np.median(y, axis=1)
+
 
 def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, model, double_hump, full_filename, data_min, ignore_pre_min, plot_title):
     """
@@ -352,17 +344,15 @@ def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, mode
     """
     # time interval assumed to be half hour time blocks
 
-
-    #set to zero initially   
-    max_od  = np.max(OD_values)
+    # set to zero initially
+    max_od = np.max(OD_values)
     max_location = np.argmax(OD_values)
     min_od = np.min(OD_values)
 
-    (lag_time, max_spec_growth_rate,median_od_max, median_od_min, delta_OD_max, doubling_time, rsquared, rmse, note) = FindRegressionCurve(
-                    OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title)
-    
-    
-    #report both max OD And median filtered max OF to excel
+    (lag_time, max_spec_growth_rate, median_od_max, median_od_min, delta_OD_max, doubling_time, rsquared, rmse, note) = FindRegressionCurve(
+        OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title)
+
+    # report both max OD And median filtered max OF to excel
 
     #legend(lag_time_str, 'location', 'SouthOutside');
     results = {}
@@ -377,15 +367,14 @@ def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, mode
     results['R^2'] = rsquared
     results['RMSE'] = rmse
     results['Notes'] = note
-    
+
     return results
-    
 
 
 class KineticMeasurement:
-    def __init__(self, data=None, 
-                 Bug='', 
-                 Micro_sampleID='', 
+    def __init__(self, data=None,
+                 Bug='',
+                 Micro_sampleID='',
                  negative_control='',
                  positive_control='',
                  Column=1,
@@ -396,7 +385,7 @@ class KineticMeasurement:
         self.strain = Bug
         self.metadata_dict = kwargs
         self.collapsed = False
-        if negative_control=='control':
+        if negative_control == 'control':
             self.negative_control = 'self'
         else:
             self.negative_control = negative_control.split(',')
@@ -417,7 +406,6 @@ class KineticMeasurement:
     def add_results(self, **params):
         self.results.update(params)
 
-
     def compare_metadata(self, test, IgnoreMetadataMatching):
         if self.sugar != test.sugar:
             return False
@@ -426,11 +414,9 @@ class KineticMeasurement:
         else:
             for meta_label in self.metadata_dict.keys():
                 if meta_label not in IgnoreMetadataMatching and \
-                    self.metadata_dict[meta_label] != test.metadata_dict[meta_label]:
+                        self.metadata_dict[meta_label] != test.metadata_dict[meta_label]:
                     return False
         return True
-
-
 
     def load_data(self, file, num_timepoints):
         lookup_string = self.row + str(int(self.column))
@@ -440,25 +426,26 @@ class KineticMeasurement:
             lookup_string, sheet.row(0))
 #        for d in sheet.col(data_col)[1:]:
 #            print(d.value)
-        self.data=np.array([float(d.value) for d in sheet.col(data_col)[1:num_timepoints+1]],dtype=float)
-        #load data
+        self.data = np.array([float(d.value) for d in sheet.col(
+            data_col)[1:num_timepoints+1]], dtype=float)
+        # load data
 
     def is_cell(self, lookup_string):
-#        print(lookup_string + " = " + str(self.row) + str(self.column))
+        #        print(lookup_string + " = " + str(self.row) + str(self.column))
         return (str(self.row) + str(self.column) == lookup_string)
-    
+
     def process_controls(self, all_data):
         if self.negative_control != 'control':
             subdata = np.zeros_like(self.data)
             for cont in self.negative_control:
                 for e in all_data:
                     if e.is_cell(cont):
-    #                    print (self.data)
-    #                    print('removing control')
+                        #                    print (self.data)
+                        #                    print('removing control')
                         subdata += e.data
     #                    print (self.data)
                         break
-            subdata/=len(self.negative_control)
+            subdata /= len(self.negative_control)
             self.data -= subdata
         self.adjusted_by_negative_control = True
 
@@ -492,17 +479,15 @@ def process_all_controls(all_data):
         exp.process_controls(all_data)
 
 
-
-
 def ParseLegacyFormat(file):
-    
+
     workbook = xlrd.open_workbook(file)
     sheet = workbook.sheet_by_index(0)
     num_columns = sheet.ncols
-    
+
     title_data0 = sheet.row(0)
     title_data1 = sheet.row(1)
-    
+
     ret_kinetics = []
 
     for i in range(num_columns):
@@ -518,30 +503,34 @@ def ParseLegacyFormat(file):
             strain = title_data1[i].value
             data = np.array(data_column_values, dtype=float)
 
-            ret_kinetics.append(KineticMeasurement(data=data, Micro_sampleID=sugar, Bug=strain))
+            ret_kinetics.append(KineticMeasurement(
+                data=data, Micro_sampleID=sugar, Bug=strain))
     return time_interval, ret_kinetics
 
+
 def find_col(string_to_find, row):
-#    print('matching ' + string_to_find)
-    for c,ele in enumerate(row):
+    #    print('matching ' + string_to_find)
+    for c, ele in enumerate(row):
         if ele.value == string_to_find:
-#            print ('matched ' + ele.value)
+            #            print ('matched ' + ele.value)
             return c
 #        else:
 #            print('no match ' + ele.value)
 
+
 def TimeToFloat(time):
     return time*24.
 
-def ParseMetaDataAndRawDataPair(metadatafile,datafile):
-    
+
+def ParseMetaDataAndRawDataPair(metadatafile, datafile):
+
     workbook_meta = xlrd.open_workbook(metadatafile)
     meta_sheet = workbook_meta.sheet_by_index(0)
     num_rows = meta_sheet.nrows
     label_row = meta_sheet.row(0)
     labels = []
     data_workbook = xlrd.open_workbook(datafile)
-    data_sheet =  data_workbook.sheet_by_index(0)
+    data_sheet = data_workbook.sheet_by_index(0)
     time_col = int(find_col('Time', data_sheet.row(0)))
 
     time_col_vals = data_sheet.col(time_col)
@@ -550,11 +539,11 @@ def ParseMetaDataAndRawDataPair(metadatafile,datafile):
     for t in time_col_vals[1:]:
         if TimeToFloat(t.value) > last_timepoint:
             last_timepoint = TimeToFloat(t.value)
-            num_timepoints= num_timepoints+1
+            num_timepoints = num_timepoints+1
         else:
             break
-    time_interval = TimeToFloat(time_col_vals[2].value) - TimeToFloat(time_col_vals[1].value)
-    
+    time_interval = TimeToFloat(
+        time_col_vals[2].value) - TimeToFloat(time_col_vals[1].value)
 
     for lab in label_row:
         labels.append(lab.value)
@@ -562,14 +551,15 @@ def ParseMetaDataAndRawDataPair(metadatafile,datafile):
     for r in range(1, num_rows):
         row = meta_sheet.row(r)
 
-        params = {label_row[i].value: row[i].value for i in range(len(label_row))}
+        params = {
+            label_row[i].value: row[i].value for i in range(len(label_row))}
         ret_kinetics.append(KineticMeasurement(**params))
         ret_kinetics[r-1].load_data(datafile, num_timepoints)
 
     # process controls
-    
+
     process_all_controls(ret_kinetics)
-    
+
     return time_interval, ret_kinetics, labels
 
 
@@ -616,9 +606,9 @@ def output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_
 
     comma = ","
 
-    #write outputs
+    # write outputs
     row = 0
-    for  meas in kinetic_measurements:
+    for meas in kinetic_measurements:
         if not meas.collapsed:
             row += 1
             if metadata:
@@ -634,11 +624,11 @@ def output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_
                     pos_control = meas.positive_control
 
                 givens = {'Column': meas.column, 'Row': meas.row, 'Micro_sampleID': meas.sugar,
-                        'Bug': meas.strain, 'negative_control': neg_control, 'positive_control': pos_control}
+                          'Bug': meas.strain, 'negative_control': neg_control, 'positive_control': pos_control}
             else:
                 givens = {'sugar': meas.sugar, 'strain': meas.strain}
 
-            #TODO: iterate through each dictionary, find location in output labels, and write individually to the row.
+            # TODO: iterate through each dictionary, find location in output labels, and write individually to the row.
 
             for dict_ele in (givens, meas.metadata_dict, meas.results):
                 for key, value in dict_ele.items():
@@ -648,7 +638,6 @@ def output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_
                         cell_format = data_format
                     write_ele_lookup_column(
                         output_sheet, row, output_labels, key, value, cell_format)
-
 
 
 def summarize_matching_metadata(kinetic_measurements, IgnoreMetadataMatching):
@@ -672,15 +661,15 @@ def summarize_matching_metadata(kinetic_measurements, IgnoreMetadataMatching):
                 if isinstance(summary_meas.results[key], numbers.Number):
                     summary_meas.results[key] /= float(count)
     return summarized_measurements
-    
 
-def GrowthCurveModeler( file_or_dir, **varargin):
+
+def GrowthCurveModeler(file_or_dir, **varargin):
     """
     GrowthCurveModeler - Calculates some metrics for growth curves, as well as graphing
         a regression curve of the data points. 
 
     Required parameter: 
-    
+
     file_or_dir - input data file or directory of input files, must be formatted properly
 
     Optional parameters:
@@ -699,7 +688,7 @@ def GrowthCurveModeler( file_or_dir, **varargin):
 
     Threshold - value {default 0.3}
       Threshold which describes the minimum OD reading to signify growth (default 0.3)
- 
+
      Model - [{'modlogistic'} | 'gompertz' | 'logistic' | 'modgompertz']
        Regression model to plot the curves
 
@@ -711,7 +700,7 @@ def GrowthCurveModeler( file_or_dir, **varargin):
      DoubleHump - [True | {False}] 
        Flag to indicate double hump processing, this expects all datasets to include a
        double/multi hump and should remove all growth humps before the "main curve" 
- 
+
      DataMin - [ True | {False}]
         Data regression minimum is min data point
 
@@ -728,7 +717,7 @@ def GrowthCurveModeler( file_or_dir, **varargin):
           GrowthCurveModeler('dataset.xlsx', DoubleHump=True, Threshold=0.2);
 
          GrowthCurveModeler('.', IncubationTime=1.5);
- 
+
          GrowthCurveModeler('folder_containing_xlsxfiles');
     """
     print(file_or_dir)
@@ -748,46 +737,45 @@ def GrowthCurveModeler( file_or_dir, **varargin):
     r2_good_fit_cutoff = 0.97
     metadata = False
     metadata_file = ''
-    GradeThresholds = [20,60]
+    GradeThresholds = [20, 60]
     IgnoreMetadataMatching = []
 
-    for k,v in varargin.items():
-        if (k=='MaxTimepoint'):
+    for k, v in varargin.items():
+        if (k == 'MaxTimepoint'):
             max_timepoint = v
-        if (k=='Threshold'):
+        if (k == 'Threshold'):
             growth_threshold = v
-        if (k=='Model'):
+        if (k == 'Model'):
             model = v
-        if (k=='PreIncubationTime'):
+        if (k == 'PreIncubationTime'):
             incubation_time = v
-        if (k=='DoubleHump'):
+        if (k == 'DoubleHump'):
             double_hump = v
-        if (k=='DataMin'):
+        if (k == 'DataMin'):
             data_min = v
-        if (k=='IgnorePreMin'):
+        if (k == 'IgnorePreMin'):
             ignore_pre_min = v
-        if (k=='RSquaredFlag'):
+        if (k == 'RSquaredFlag'):
             r2_good_fit_cutoff = v
-        if (k=='MetaDataFile'):
+        if (k == 'MetaDataFile'):
             metadata = True
             metadata_file = v
-        if (k=='GradeThresholds'):
+        if (k == 'GradeThresholds'):
             GradeThresholds = v
         if (k == 'IgnoreMetadataMatching'):
             IgnoreMetadataMatching = v
-        
-    
+
     (path, file) = os.path.split(file_or_dir)
     (stub, ext) = os.path.splitext(file)
-    
+
     if (path):
         path = path + "/"
-        
+
     plots_folder = path + "results/"
-        
+
     if (not os.path.exists(plots_folder)):
         os.mkdir(plots_folder)
-        
+
     plots_folder = plots_folder + stub + " plots/"
 
     if (not os.path.exists(plots_folder)):
@@ -795,29 +783,29 @@ def GrowthCurveModeler( file_or_dir, **varargin):
 
     metadata_labels = []
     if metadata:
-        (time_interval, kinetic_measurements, metadata_labels) = ParseMetaDataAndRawDataPair(metadata_file, file_or_dir)
+        (time_interval, kinetic_measurements,
+         metadata_labels) = ParseMetaDataAndRawDataPair(metadata_file, file_or_dir)
     else:
         (time_interval, kinetic_measurements) = ParseLegacyFormat(file_or_dir)
         metadata_labels = ['sugar', 'strain']
 
-
-
     # run regressions
-    for (i,meas) in enumerate(kinetic_measurements):
+    for (i, meas) in enumerate(kinetic_measurements):
         sugar_folder = plots_folder + "/" + meas.sugar
         if (not os.path.exists(sugar_folder)):
             os.mkdir(sugar_folder)
         full_filename = sugar_folder + "/" + meas.sugar + \
             '-' + meas.strain + '-' + meas.row + str(int(meas.column))
-        
-        
+
         if (max_timepoint < 0):
             results = MicrobialKinetics(
-                np.array(meas.data, dtype=float), time_interval, incubation_time, growth_threshold, model,
+                np.array(
+                    meas.data, dtype=float), time_interval, incubation_time, growth_threshold, model,
                 double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain)
         else:
             results = MicrobialKinetics(
-                np.array(meas.data[0:max_timepoint / time_interval]), time_interval, incubation_time,
+                np.array(meas.data[0:max_timepoint / time_interval]
+                         ), time_interval, incubation_time,
                 growth_threshold, model, double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain)
 
         meas.add_results(**results)
@@ -830,53 +818,38 @@ def GrowthCurveModeler( file_or_dir, **varargin):
             meas.results['Notes'] = meas.results['Notes'] + 'Poor Regression'
 
 
-#process results
-    for (i,meas) in enumerate(kinetic_measurements):
+# process results
+    for (i, meas) in enumerate(kinetic_measurements):
         meas.calc_pos_control_metrics(kinetic_measurements, GradeThresholds)
 
+    pos_control_fields = (
+        'Delta_OD / Positive_Control_Delta_OD', 'Growth Rating')
 
-    pos_control_fields = ('Delta_OD / Positive_Control_Delta_OD','Growth Rating')
+    output_labels = (*metadata_labels, 'Lag Time (hours)', 'Max Specific Growth Rate (1/hours)',
+                     'Doubling Time (hours)', 'Max OD', 'Max OD (Median Filtered Data)', 'Min OD',
+                     'Min OD (Median Filtered Data)', 'Delta OD (Median Filtered Data)',
+                     'R^2', 'RMSE', 'Notes', *pos_control_fields)
 
-
-    output_labels = (*metadata_labels,'Lag Time (hours)', 'Max Specific Growth Rate (1/hours)',\
-            'Doubling Time (hours)', 'Max OD', 'Max OD (Median Filtered Data)', 'Min OD',\
-            'Min OD (Median Filtered Data)', 'Delta OD (Median Filtered Data)',  \
-            'R^2', 'RMSE', 'Notes', *pos_control_fields)
-    
     time_interval = 0.5
-
 
     output_file = path + 'results/' + stub + ' results.xlsx'
     output_workbook = xlsxwriter.Workbook(output_file)
 
-
     output_sheet = output_workbook.add_worksheet("Results Full")
 
-
     output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_fit_cutoff,
-                           kinetic_measurements, metadata)
+                          kinetic_measurements, metadata)
 
-
-    summarized_measurements = summarize_matching_metadata(kinetic_measurements, IgnoreMetadataMatching)
+    summarized_measurements = summarize_matching_metadata(
+        kinetic_measurements, IgnoreMetadataMatching)
     output_sheet = output_workbook.add_worksheet("Results Summarized")
 
     output_into_worksheet(output_labels, output_workbook, output_sheet,
                           r2_good_fit_cutoff, summarized_measurements, metadata)
 
-
     output_workbook.close()
-   
-            
-            #plot title = name         
-             
-            #save plot to sugar folder
-            #close plot
-    
-    
-    
- 
 
-    
+    # plot title = name
 
-
-    
+    # save plot to sugar folder
+    # close plot
