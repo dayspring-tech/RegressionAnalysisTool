@@ -1,6 +1,8 @@
 import os
+import sys
 import glob
 import xlrd
+import csv
 import xlsxwriter
 import numpy as np
 import scipy.optimize
@@ -77,7 +79,7 @@ def plot_results(full_plot, full_filename, lag_time=None, timepoints=None, time=
     return
 
 
-def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title):
+def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title, create_plots):
     """
     FindRegressionCurve - using the parameters specified, attempts to fit a 
     regression best fit line of the specified model to the data supplied.
@@ -232,8 +234,9 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         doubling_time = ''
         rsquared = ''
         rmse = ''
-        plot_results(False, full_filename, 0, timepoints, time, None, OD_values, msgr, doubling_time,
-                     delta_OD_max, min_od, median_od_max, plot_title=plot_title)
+        if create_plots:
+            plot_results(False, full_filename, 0, timepoints, time, None, OD_values, msgr, doubling_time,
+                         delta_OD_max, min_od, median_od_max, plot_title=plot_title)
         return (lag_time, msgr, median_od_max, median_min_od,  delta_OD_max, doubling_time, rsquared, rmse, note)
     possible_growth_flag = 0
     if (delta_OD_max < threshold * 1.3):
@@ -253,7 +256,8 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         rsquared = ''
         rmse = ''
         delta_OD_max = ''
-        plot_results(False, full_filename, plot_title=plot_title)
+        if create_plots:
+            plot_results(False, full_filename, plot_title=plot_title)
         return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note)
     except RuntimeError:
         print('Maxed out calls, cannot fit curve')
@@ -265,7 +269,8 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
         rsquared = ''
         rmse = ''
         delta_OD_max = ''
-        plot_results(False, full_filename, plot_title=plot_title)
+        if create_plots:
+            plot_results(False, full_filename, plot_title=plot_title)
         return (lag_time, msgr, median_od_max, median_min_od, delta_OD_max, doubling_time, rsquared, rmse, note)
 
     # need to re-evaluate use of R^2 value.  With non-linear regression, this value is dubious.  Should perhaps use standard error in the units of OD or a pseudo R^2 value
@@ -306,8 +311,9 @@ def FindRegressionCurve(OD_values, time_interval, incubation_time, model, double
 
     regression = fitfunc(time, coef[0], coef[1], coef[2], coef[3])
 
-    plot_results(True, full_filename, lag_time, timepoints, time, regression, OD_values, msgr,
-                 doubling_time, delta_OD_max, min_od, median_od_max, possible_growth_flag, plot_title=plot_title)
+    if create_plots:
+        plot_results(True, full_filename, lag_time, timepoints, time, regression, OD_values, msgr,
+                     doubling_time, delta_OD_max, min_od, median_od_max, possible_growth_flag, plot_title=plot_title)
 
     # plot curve
 
@@ -336,7 +342,7 @@ def medfilt(x, k):
     return np.median(y, axis=1)
 
 
-def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, model, double_hump, full_filename, data_min, ignore_pre_min, plot_title):
+def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, model, double_hump, full_filename, data_min, ignore_pre_min, plot_title, create_plots):
     """
     MicrobialKinetics -  For a specific dataset, attempts to determine a group
     of statistics on the growth which occurred.   Plots the dataset along the 
@@ -350,7 +356,7 @@ def MicrobialKinetics(OD_values, time_interval, incubation_time, threshold, mode
     min_od = np.min(OD_values)
 
     (lag_time, max_spec_growth_rate, median_od_max, median_od_min, delta_OD_max, doubling_time, rsquared, rmse, note) = FindRegressionCurve(
-        OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title)
+        OD_values, time_interval, incubation_time, model, double_hump, threshold, full_filename, data_min, ignore_pre_min, plot_title, create_plots)
 
     # report both max OD And median filtered max OF to excel
 
@@ -478,6 +484,10 @@ def process_all_controls(all_data):
     for exp in all_data:
         exp.process_controls(all_data)
 
+#
+# Legacy Format Parser functions
+#
+
 
 def ParseLegacyFormat(file):
 
@@ -507,15 +517,15 @@ def ParseLegacyFormat(file):
                 data=data, Micro_sampleID=sugar, Bug=strain))
     return time_interval, ret_kinetics
 
+#
+# XLSX Parser functions
+#
+
 
 def find_col(string_to_find, row):
-    #    print('matching ' + string_to_find)
     for c, ele in enumerate(row):
         if ele.value == string_to_find:
-            #            print ('matched ' + ele.value)
             return c
-#        else:
-#            print('no match ' + ele.value)
 
 
 def TimeToFloat(time):
@@ -561,6 +571,108 @@ def ParseMetaDataAndRawDataPair(metadatafile, datafile):
     process_all_controls(ret_kinetics)
 
     return time_interval, ret_kinetics, labels
+
+#
+# CSV Parser functions
+#
+
+
+def load_dataCSV(csvdata, file, num_timepoints):
+    lookup_string = csvdata.row + str(int(csvdata.column))
+
+    data_workbook = open(file, encoding='utf-8-sig')
+    sheet = csv.reader(data_workbook)
+
+    data_header = []
+    for data_header in sheet:
+        break
+    data_col = find_colCSV(
+        lookup_string, data_header)
+    data_col_vals = []
+    for row in sheet:
+        if (row[data_col].replace('.', '').isdecimal()):
+            data_col_vals.append(row[data_col])
+        else:
+            break
+    csvdata.data = np.array([float(d) for d in data_col_vals], dtype=float)
+
+
+def find_colCSV(string_to_find, row):
+    for c, ele in enumerate(row):
+        if (ele.strip() == string_to_find.strip().lstrip()):
+            return c
+
+
+def StrTimeToFloat(time_str):
+    sec = time_str[time_str.rfind(':')+1:]
+    min = time_str[time_str.find(':')+1:time_str.find(':')+3]
+    hr = time_str[0:time_str.find(':')]
+    float_val = float(hr) + float(min)/60 + float(sec)/3600
+    return float_val
+
+
+def ParseMetaDataAndRawDataPairCSV(metadatafile, datafile):
+
+    print('PMDARDPCSV: '+metadatafile)
+
+    labels = []
+
+    workbook_meta = open(metadatafile, encoding='utf-8-sig')
+    meta_sheet = csv.reader(workbook_meta)
+
+    for label_row in meta_sheet:
+        # reads the first header row only
+        break
+
+    data_workbook = open(datafile, encoding='utf-8-sig')
+    data_sheet = csv.reader(data_workbook)
+    data_header = []
+    for data_header in data_sheet:
+        break
+
+    time_col = int(find_colCSV('Time', data_header))
+
+    time_col_vals = []
+    for data_header in data_sheet:
+        time_col_vals.append(data_header[time_col])
+
+    last_timepoint = -0.1
+    num_timepoints = 0
+    for t in time_col_vals:
+        if StrTimeToFloat(t) > last_timepoint:
+            last_timepoint = StrTimeToFloat(t)
+            num_timepoints = num_timepoints+1
+        else:
+            break
+    time_interval = StrTimeToFloat(
+        time_col_vals[1]) - StrTimeToFloat(time_col_vals[0])
+
+    for lab in label_row:
+        if len(lab) > 0:
+            labels.append(lab)
+
+    r = 0
+    ret_kinetics = []
+
+    for row in meta_sheet:
+        #params = {label_row[i]: row[i] for i in range(len(label_row))}
+        if (len(row[0].strip()) == 0):
+            break
+
+        params = {col: row[i] for (i, col) in enumerate(label_row)}
+        # print(params)
+        ret_kinetics.append(KineticMeasurement(**params))
+        load_dataCSV(ret_kinetics[r], datafile, num_timepoints)
+        r += 1
+
+    # process controls
+    process_all_controls(ret_kinetics)
+
+    return time_interval, ret_kinetics, labels
+
+#
+# end of parser functions
+#
 
 
 def write_ele_lookup_column(output_sheet, row, output_labels, lookup_string, val, data_format):
@@ -713,6 +825,15 @@ def GrowthCurveModeler(file_or_dir, **varargin):
      IgnoreMetadataMatching - list of strings {default []}
         labels to ignore when finding matching metadaataa
 
+     CreateXLS - [{True} | False]
+        Create a result XLS with results of the calculation
+
+     CreatePlots - [{True} | False]
+        Create full set of plots for the calculated results
+
+     ReturnData - [True | {False}]
+        Return the calculations as an array so it can be further processed
+
       Examples:
           GrowthCurveModeler('dataset.xlsx', DoubleHump=True, Threshold=0.2);
 
@@ -720,6 +841,9 @@ def GrowthCurveModeler(file_or_dir, **varargin):
 
          GrowthCurveModeler('folder_containing_xlsxfiles');
     """
+    version = "1.1.0"
+    print("Calculation version: " + version)
+
     print(file_or_dir)
     if (os.path.isdir(file_or_dir)):
         runnable_files = glob.glob(file_or_dir + "/*.xlsx")
@@ -739,6 +863,9 @@ def GrowthCurveModeler(file_or_dir, **varargin):
     metadata_file = ''
     GradeThresholds = [20, 60]
     IgnoreMetadataMatching = []
+    create_xls = True
+    create_plots = True
+    return_data = False
 
     for k, v in varargin.items():
         if (k == 'MaxTimepoint'):
@@ -764,6 +891,12 @@ def GrowthCurveModeler(file_or_dir, **varargin):
             GradeThresholds = v
         if (k == 'IgnoreMetadataMatching'):
             IgnoreMetadataMatching = v
+        if (k == 'CreateXLS'):
+            create_xls = v
+        if (k == 'CreatePlots'):
+            create_plots = v
+        if (k == 'ReturnData'):
+            return_data = v
 
     (path, file) = os.path.split(file_or_dir)
     (stub, ext) = os.path.splitext(file)
@@ -783,8 +916,12 @@ def GrowthCurveModeler(file_or_dir, **varargin):
 
     metadata_labels = []
     if metadata:
-        (time_interval, kinetic_measurements,
-         metadata_labels) = ParseMetaDataAndRawDataPair(metadata_file, file_or_dir)
+        if (file_or_dir.find('.csv') > 0):
+            (time_interval, kinetic_measurements, metadata_labels) = ParseMetaDataAndRawDataPairCSV(
+                metadata_file, file_or_dir)
+        else:
+            (time_interval, kinetic_measurements, metadata_labels) = ParseMetaDataAndRawDataPair(
+                metadata_file, file_or_dir)
     else:
         (time_interval, kinetic_measurements) = ParseLegacyFormat(file_or_dir)
         metadata_labels = ['sugar', 'strain']
@@ -801,12 +938,12 @@ def GrowthCurveModeler(file_or_dir, **varargin):
             results = MicrobialKinetics(
                 np.array(
                     meas.data, dtype=float), time_interval, incubation_time, growth_threshold, model,
-                double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain)
+                double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain, create_plots)
         else:
             results = MicrobialKinetics(
                 np.array(meas.data[0:max_timepoint / time_interval]
                          ), time_interval, incubation_time,
-                growth_threshold, model, double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain)
+                growth_threshold, model, double_hump, full_filename, data_min, ignore_pre_min, meas.sugar + '-' + meas.strain, create_plots)
 
         meas.add_results(**results)
 
@@ -817,8 +954,7 @@ def GrowthCurveModeler(file_or_dir, **varargin):
                 meas.results['Notes'] = meas.results['Notes'] + '; '
             meas.results['Notes'] = meas.results['Notes'] + 'Poor Regression'
 
-
-# process results
+    # process results
     for (i, meas) in enumerate(kinetic_measurements):
         meas.calc_pos_control_metrics(kinetic_measurements, GradeThresholds)
 
@@ -832,24 +968,33 @@ def GrowthCurveModeler(file_or_dir, **varargin):
 
     time_interval = 0.5
 
-    output_file = path + 'results/' + stub + ' results.xlsx'
-    output_workbook = xlsxwriter.Workbook(output_file)
+    # write to xls.   default == True
+    if create_xls:
+        output_file = path + 'results/' + stub + ' results.xlsx'
+        output_workbook = xlsxwriter.Workbook(output_file)
 
-    output_sheet = output_workbook.add_worksheet("Results Full")
+        output_sheet = output_workbook.add_worksheet("Results Full")
 
-    output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_fit_cutoff,
-                          kinetic_measurements, metadata)
+        output_into_worksheet(output_labels, output_workbook, output_sheet, r2_good_fit_cutoff,
+                              kinetic_measurements, metadata)
 
-    summarized_measurements = summarize_matching_metadata(
-        kinetic_measurements, IgnoreMetadataMatching)
-    output_sheet = output_workbook.add_worksheet("Results Summarized")
+        summarized_measurements = summarize_matching_metadata(
+            kinetic_measurements, IgnoreMetadataMatching)
+        output_sheet = output_workbook.add_worksheet("Results Summarized")
 
-    output_into_worksheet(output_labels, output_workbook, output_sheet,
-                          r2_good_fit_cutoff, summarized_measurements, metadata)
+        output_into_worksheet(output_labels, output_workbook, output_sheet,
+                              r2_good_fit_cutoff, summarized_measurements, metadata)
 
-    output_workbook.close()
+        output_workbook.close()
 
-    # plot title = name
+    # perform db updates.  default == False
+    if return_data:
+        return version, file_or_dir, kinetic_measurements
 
-    # save plot to sugar folder
-    # close plot
+
+#
+# simple commandline interface to run the calculations
+#  $ python GrowthCurveModeler <growthdata_filename> <metadata_filename>
+#
+if __name__ == "__main__":
+    GrowthCurveModeler(sys.argv[1], MetaDataFile=sys.argv[2])
